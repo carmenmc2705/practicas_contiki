@@ -16,9 +16,8 @@ build/sky/obj/udp-server.o: udp-server.c ../../os/contiki.h \
  ../../os/net/nbr-table.h ../../os/net/netstack.h ../../os/net/mac/mac.h \
  ../../os/dev/radio.h ../../os/net/mac/framer/framer.h \
  ../../os/net/ipv6/uip-ds6-route.h ../../os/lib/list.h \
- ../../os/net/ipv6/uip-sr.h ../../os/lib/random.h \
- ../../os/net/ipv6/simple-udp.h ../../os/sys/log.h \
- ../../os/sys/log-conf.h
+ ../../os/net/ipv6/uip-sr.h ../../os/net/ipv6/simple-udp.h \
+ ../../os/sys/log.h ../../os/sys/log-conf.h
 
 ../../os/contiki.h:
 
@@ -101,8 +100,6 @@ build/sky/obj/udp-server.o: udp-server.c ../../os/contiki.h \
 ../../os/lib/list.h:
 
 ../../os/net/ipv6/uip-sr.h:
-
-../../os/lib/random.h:
 
 ../../os/net/ipv6/simple-udp.h:
 

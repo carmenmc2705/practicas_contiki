@@ -1,10 +1,10 @@
+
 #include "contiki.h"
 #include "net/routing/routing.h"
-#include "random.h"
 #include "net/netstack.h"
 #include "net/ipv6/simple-udp.h"
-#include <stdint.h>
-#include <inttypes.h>
+#include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 
 #include "sys/log.h"
@@ -14,13 +14,10 @@
 #define UDP_CLIENT_PORT	8765
 #define UDP_SERVER_PORT	5678
 
-#define SEND_INTERVAL		  (60 * CLOCK_SECOND)
-
 static struct simple_udp_connection udp_conn;
 
-/*---------------------------------------------------------------------------*/
-PROCESS(udp_client_process, "UDP client");
-AUTOSTART_PROCESSES(&udp_client_process);
+PROCESS(udp_server_process, "UDP server");
+AUTOSTART_PROCESSES(&udp_server_process);
 /*---------------------------------------------------------------------------*/
 static void
 udp_rx_callback(struct simple_udp_connection *c,
@@ -31,56 +28,39 @@ udp_rx_callback(struct simple_udp_connection *c,
          const uint8_t *data,
          uint16_t datalen)
 {
-  /* Al recibir la respuesta en Fahrenheit desde el servidor */
-  LOG_INFO("Temperatura en Fahrenheit calculada por el servidor '%.*s' grados.\n",
-           datalen, (char *) data);
+  char buf[16];
+  char reply[16];
+  int temp_c, temp_f;
+
+  /* Los datos recibidos NO terminan en '\0': copiarlos a un buffer */
+  if(datalen >= sizeof(buf)) {
+    datalen = sizeof(buf) - 1;
+  }
+  memcpy(buf, data, datalen);
+  buf[datalen] = '\0';
+
+  temp_c = atoi(buf);
+  temp_f = temp_c * 9 / 5 + 32;   /* aritmética entera: sin %f en MSP430 */
+
+  LOG_INFO("Recibida temperatura %d C desde ", temp_c);
+  LOG_INFO_6ADDR(sender_addr);
+  LOG_INFO_("\n");
+
+  snprintf(reply, sizeof(reply), "%d", temp_f);
+  LOG_INFO("Respondiendo con %d F\n", temp_f);
+  simple_udp_sendto(&udp_conn, reply, strlen(reply), sender_addr);
 }
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(udp_client_process, ev, data)
+PROCESS_THREAD(udp_server_process, ev, data)
 {
-  static struct etimer periodic_timer;
-  static unsigned count = 0;
-  static char str[32];
-  uip_ipaddr_t dest_ipaddr;
-  int temp_c;
-
   PROCESS_BEGIN();
 
-  /* Inicializar conexión UDP */
-  simple_udp_register(&udp_conn, UDP_CLIENT_PORT, NULL,
-                      UDP_SERVER_PORT, udp_rx_callback);
+  /* El servidor es la raíz de la red RPL */
+  NETSTACK_ROUTING.root_start();
 
-  etimer_set(&periodic_timer, random_rand() % SEND_INTERVAL);
-  while(1) {
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-
-    if(NETSTACK_ROUTING.node_is_reachable() &&
-       NETSTACK_ROUTING.get_root_ipaddr(&dest_ipaddr)) {
-
-      count++;
-
-      /* Lógica impar (interna = 42) / par (externa = 27) */
-      if(count % 2 != 0) {
-        temp_c = 42;
-        LOG_INFO("Enviando temperatura interna en Celsius = %d\n", temp_c);
-      } else {
-        temp_c = 27;
-        LOG_INFO("Enviando temperatura externa en Celsius = %d\n", temp_c);
-      }
-
-      /* Formatear y enviar el valor numérico al servidor */
-      snprintf(str, sizeof(str), "%d", temp_c);
-      simple_udp_sendto(&udp_conn, str, strlen(str), &dest_ipaddr);
-
-    } else {
-      LOG_INFO("Not reachable yet\n");
-    }
-
-    /* Siguiente envío con jitter */
-    etimer_set(&periodic_timer, SEND_INTERVAL
-      - CLOCK_SECOND + (random_rand() % (2 * CLOCK_SECOND)));
-  }
+  /* Escucha en el puerto del servidor; los clientes usan UDP_CLIENT_PORT */
+  simple_udp_register(&udp_conn, UDP_SERVER_PORT, NULL,
+                      UDP_CLIENT_PORT, udp_rx_callback);
 
   PROCESS_END();
 }
-/*---------------------------------------------------------------------------*/
