@@ -1,0 +1,7 @@
+#ifndef PROJECT_CONF_H_
+#define PROJECT_CONF_H_
+
+#define IEEE802154_CONF_PANID           0x3C4D
+#define IEEE802154_CONF_DEFAULT_CHANNEL 20
+
+#endif /* PROJECT_CONF_H_ */
